@@ -24,7 +24,7 @@ class PositionalEncoding(nn.Module):
         super().__init__()
         self.d_model = d_model
         self.seq_len = seq_len
-        self.dropout = dropout
+        self.dropout = nn.Dropout(dropout)
 
         # create a matric of shape (seq_len, d_model)
         pe = torch.zeros(seq_len, d_model)
@@ -39,7 +39,7 @@ class PositionalEncoding(nn.Module):
         self.register_buffer('pe', pe)
 
     def forward(self, x):
-        x = x + (self.pe[:,:x.shape[1], :]).requires_grad(False) # we don't want the PE to be learnable
+        x = x + (self.pe[:,:x.shape[1], :]).requires_grad_(False) # we don't want the PE to be learnable
         return self.dropout(x)
 
 # layer normalization
@@ -105,8 +105,8 @@ class MultiHeadAttention(nn.Module):
 
     def forward(self, q, k, v, mask): # if we want some words not interacting with each other mask is used
         query = self.w_q(q)  # (Batch, seq_len, d_model) --> (Batch, seq_len, d_model)
-        key = self.q_k(k)    # (Batch, seq_len, d_model) --> (Batch, seq_len, d_model)
-        value = self.q_v(v)   # (Batch, seq_len, d_model) --> (Batch, seq_len, d_model)
+        key = self.w_k(k)    # (Batch, seq_len, d_model) --> (Batch, seq_len, d_model)
+        value = self.w_v(v)   # (Batch, seq_len, d_model) --> (Batch, seq_len, d_model)
 
         # (Batch, seq_len, d_model) --> (Batch, seq_len, num_h, d_k) --> (Batch, num_h, seq_len, d_k)
         # transpose if done to make sure that each head sees the entire sentence but small parts of the embeddings
@@ -114,7 +114,7 @@ class MultiHeadAttention(nn.Module):
         key = key.view(key.shape[0], key.shape[1], self.num_head, self.d_k).transpose(1,2)
         value = value.view(value.shape[0], value.shape[1], self.num_head, self.d_k).transpose(1,2)
 
-        x, self.attention_scores = MultiHeadAttention.attention(query, key, value, self.dropout)
+        x, self.attention_scores = MultiHeadAttention.attention(query, key, value, mask, self.dropout)
 
         # (Batch, num_head, seq_len, d_k) --> (Batch, seq_len, num_head, d_k) --> (Batch, seq_len, d_model)
         # using contiguous so pytorch would do it in-place for memory management
@@ -142,6 +142,7 @@ class EncoderBlock(nn.Module):
     def forward(self, x, src_mask):
         x = self.residual_connection[0](x, lambda x: self.self_attention_block(x,x,x,src_mask))
         x = self.residual_connection[1](x, self.feed_forward_block)
+        return x
 
 class Encoder(nn.Module):
     def __init__(self, layers: nn.ModuleList) -> None:
