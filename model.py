@@ -24,7 +24,7 @@ class PositionalEncoding(nn.Module):
         super().__init__()
         self.d_model = d_model
         self.seq_len = seq_len
-        self.dropout = nn.Dropout(dropout)
+        self.dropout_ = nn.Dropout(dropout)
 
         # create a matric of shape (seq_len, d_model)
         pe = torch.zeros(seq_len, d_model)
@@ -40,7 +40,7 @@ class PositionalEncoding(nn.Module):
 
     def forward(self, x):
         x = x + (self.pe[:,:x.shape[1], :]).requires_grad_(False) # we don't want the PE to be learnable
-        return self.dropout(x)
+        return self.dropout_(x)
 
 # layer normalization
 class LayerNormalization(nn.Module):
